@@ -3,13 +3,18 @@
 import hashlib
 import json
 import os
-import math
 import secrets
 
 members = {
-    "M01": {"name": "Alex", "plan": "Gold", "months_left": 6, "fee": 600.0},
-    "M02": {"name": "Brooke", "plan": "Silver", "months_left": 1, "fee": 350.0},
-    "M03": {"name": "Chris", "plan": "Platinum", "months_left": 12, "fee": 1000.0},
+    "M01": {
+        "name": "Alex", "plan": "Gold", "months_left": 6, "fee": 600.0,
+    },
+    "M02": {
+        "name": "Brooke", "plan": "Silver", "months_left": 1, "fee": 350.0,
+    },
+    "M03": {
+        "name": "Chris", "plan": "Platinum", "months_left": 12, "fee": 1000.0,
+    },
 }
 
 # Shared activity log, used when the caller does not supply their own list
@@ -22,7 +27,12 @@ def register_member(m_id, name, plan, months, member_log=None):
         member_log = activity_log
     if m_id in members or months <= 0:
         return False
-    members[m_id] = {"name": name, "plan": plan, "months_left": months, "fee": 50.0 * months}
+    members[m_id] = {
+        "name": name,
+        "plan": plan,
+        "months_left": months,
+        "fee": 50.0 * months,
+    }
     member_log.append(f"Registered {m_id} for {months} months")
     return True
 
