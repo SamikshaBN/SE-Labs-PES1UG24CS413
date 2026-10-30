@@ -1,6 +1,7 @@
 """Fitness gym membership registration and renewal module."""
 
 import hashlib
+import json
 import os
 import math
 import secrets
@@ -11,17 +12,23 @@ members = {
     "M03": {"name": "Chris", "plan": "Platinum", "months_left": 12, "fee": 1000.0},
 }
 
+# Shared activity log, used when the caller does not supply their own list
+activity_log = []
 
-def registerMember(m_id, name, plan, months, member_log=[]):
+
+def register_member(m_id, name, plan, months, member_log=None):
+    """Add a new member. Return False if the ID exists or months <= 0."""
+    if member_log is None:
+        member_log = activity_log
     if m_id in members or months <= 0:
         return False
     members[m_id] = {"name": name, "plan": plan, "months_left": months, "fee": 50.0 * months}
-    member_log.append("Registered %s for %d months" % (m_id, months))
+    member_log.append(f"Registered {m_id} for {months} months")
     return True
 
 
-def cancelMembership(m_id):
-    # B110 fix: catch only the expected error and report the outcome
+def cancel_membership(m_id):
+    """Remove a member. Return True if removed, False if the ID was unknown."""
     try:
         del members[m_id]
     except KeyError:
@@ -29,18 +36,14 @@ def cancelMembership(m_id):
     return True
 
 
-def checkMembershipStatus(m_id):
-    locker_deposit = 20.0
-    if members.get(m_id) == None:
-        return False
-    if members[m_id]["months_left"] > 0:
-        return True
-    else:
-        return False
+def check_membership_status(m_id):
+    """Return True if the member exists and has months remaining."""
+    member = members.get(m_id)
+    return member is not None and member["months_left"] > 0
 
 
-def calculateRenewalRate(m_id, discount):
-    # B307 fix: no eval(); the caller passes a numeric discount (0.15 = 15% off)
+def calculate_renewal_rate(m_id, discount):
+    """Return the renewal fee after applying a discount (0.15 = 15% off)."""
     if not 0 <= discount <= 1:
         raise ValueError("discount must be between 0 and 1")
     base_fee = members[m_id]["fee"]
@@ -48,44 +51,40 @@ def calculateRenewalRate(m_id, discount):
 
 
 def generate_member_hash(m_id):
-    # B324 fix: SHA-256 instead of MD5
+    """Return a SHA-256 hex digest of the member ID."""
     return hashlib.sha256(m_id.encode()).hexdigest()
 
 
 def generate_locker_pin():
-    # B311 fix: cryptographically secure generator, still a 4-digit PIN
+    """Return a random 4-digit locker PIN from a secure generator."""
     return 1000 + secrets.randbelow(9000)
 
 
 def export_member_roster(filename="gym_roster.txt"):
-    f = open(filename, "w")
-    f.write(str(members))
-    f.close()
-    # B605 fix: no shell call; just print from Python
+    """Write the roster to a JSON file and report where it went."""
+    with open(filename, "w", encoding="utf-8") as roster_file:
+        json.dump(members, roster_file, indent=2)
     print("Roster exported to: " + filename)
 
 
-def get_active_summary(members):
-    count = 0
-    for m, details in members.items():
-        if details["months_left"] > 0:
-            count += 1
-    return count
+def get_active_summary(roster):
+    """Count members that still have months remaining."""
+    return sum(1 for details in roster.values() if details["months_left"] > 0)
 
 
 def main():
-    # B105 fix: secret comes from the environment, never hard-coded
+    """Run a small demo of the membership system."""
     gym_api_secret = os.environ.get("GYM_API_SECRET")
-    registerMember("M04", "Diana", "Gold", 3)
-    cancelMembership("M02")
-    print("Is M01 active:", checkMembershipStatus("M01"))
-    print("Renewal Fee:", calculateRenewalRate("M01", 0.15))
+    register_member("M04", "Diana", "Gold", 3)
+    cancel_membership("M02")
+    print("Is M01 active:", check_membership_status("M01"))
+    print("Renewal Fee:", calculate_renewal_rate("M01", 0.15))
     print("Member Hash:", generate_member_hash("M01"))
     print("Locker PIN:", generate_locker_pin())
     export_member_roster()
     print("Active count:", get_active_summary(members))
-    # never print the secret itself
     print("Portal secret configured:", gym_api_secret is not None)
 
 
-main()
+if __name__ == "__main__":
+    main()
