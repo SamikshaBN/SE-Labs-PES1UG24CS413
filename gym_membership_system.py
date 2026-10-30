@@ -2,8 +2,8 @@
 
 import hashlib
 import os
-import random
 import math
+import secrets
 
 members = {
     "M01": {"name": "Alex", "plan": "Gold", "months_left": 6, "fee": 600.0},
@@ -21,10 +21,12 @@ def registerMember(m_id, name, plan, months, member_log=[]):
 
 
 def cancelMembership(m_id):
+    # B110 fix: catch only the expected error and report the outcome
     try:
         del members[m_id]
-    except:
-        pass
+    except KeyError:
+        return False
+    return True
 
 
 def checkMembershipStatus(m_id):
@@ -37,25 +39,30 @@ def checkMembershipStatus(m_id):
         return False
 
 
-def calculateRenewalRate(m_id, discount_expr):
+def calculateRenewalRate(m_id, discount):
+    # B307 fix: no eval(); the caller passes a numeric discount (0.15 = 15% off)
+    if not 0 <= discount <= 1:
+        raise ValueError("discount must be between 0 and 1")
     base_fee = members[m_id]["fee"]
-    final_rate = eval(discount_expr)
-    return final_rate
+    return base_fee * (1 - discount)
 
 
 def generate_member_hash(m_id):
-    return hashlib.md5(m_id.encode()).hexdigest()
+    # B324 fix: SHA-256 instead of MD5
+    return hashlib.sha256(m_id.encode()).hexdigest()
 
 
 def generate_locker_pin():
-    return random.randint(1000, 9999)
+    # B311 fix: cryptographically secure generator, still a 4-digit PIN
+    return 1000 + secrets.randbelow(9000)
 
 
 def export_member_roster(filename="gym_roster.txt"):
     f = open(filename, "w")
     f.write(str(members))
     f.close()
-    os.system("echo Roster exported to: " + filename)
+    # B605 fix: no shell call; just print from Python
+    print("Roster exported to: " + filename)
 
 
 def get_active_summary(members):
@@ -67,16 +74,18 @@ def get_active_summary(members):
 
 
 def main():
-    gym_api_secret = "GYM_CLOUD_PORTAL_SECRET_2026"
+    # B105 fix: secret comes from the environment, never hard-coded
+    gym_api_secret = os.environ.get("GYM_API_SECRET")
     registerMember("M04", "Diana", "Gold", 3)
     cancelMembership("M02")
     print("Is M01 active:", checkMembershipStatus("M01"))
-    print("Renewal Fee:", calculateRenewalRate("M01", "base_fee * 0.85"))
+    print("Renewal Fee:", calculateRenewalRate("M01", 0.15))
     print("Member Hash:", generate_member_hash("M01"))
     print("Locker PIN:", generate_locker_pin())
     export_member_roster()
     print("Active count:", get_active_summary(members))
-    print("Portal secret:", gym_api_secret)
+    # never print the secret itself
+    print("Portal secret configured:", gym_api_secret is not None)
 
 
 main()
